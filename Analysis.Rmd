@@ -1,0 +1,565 @@
+---
+title: "COVID-19 Analysis"
+author: "Gabriel Lapointe"
+date: "March 29, 2020"
+output:
+  pdf_document:
+    toc: yes
+    latex_engine: xelatex
+    number_sections: yes
+  html_document:
+    highlight: pygments
+    number_sections: yes
+    toc: yes
+variant: markdown_github
+---
+
+# Overview
+
+## Context Summary
+The COVID-19 is infecting many hundred of thousands people in the world and is very virulant. Among these people, many recovered from the infection while some of them died. These statistics increase day after day and many scientists are working to understand the virus and find out a vaccin to stop the propagation. While the COVID-19 is propagating around the world, safety measures have been enforced in many countries in order to reduce the propagation between infected people and non infected people. However, they discovered that elder people and people with chronic diseases are more at risk to die.
+
+Here are some safety measures applied in Canada:
+
+- Social distancing rule where people have to be at a distance of at least 2 meters between each other. People that are not respecting that rule could get a fine (from 1500\$ to 6000\$). It also means that gatherings of people are strongly forbidden and is punishable by fine.
+- Non-essential services and stores are closed. Services like hospitals, police, gaz stations, drug stores, grocery stores are considered essential services and stores.
+- There is a limitation of people that can enter the stores considered as essential. Also, people have to wash their hands with purell when entering the store. In grocery stores, baskets are all desinfected once a client finished his grocery and leave the store.
+
+## Questions
+The COVID-19 is not fully understood and many questions have to be answered: 
+
+1. In which countries the propagation of the virus slowed down the most quickly?
+2. Which countries have the greater ratio of deaths over the population and the total infected people?
+3. Which countries have the greater ratio of recovery over the population and the total infected people?
+4. What is the age category that is more susceptible to die from the COVID-19 after being infected?
+5. What is the age category that got mostly infected.
+6. Is there a correlation between the sex of a person and the infection rate, death rate and recovery rate?
+7. Which chronic diseases are the most vulnerable against the COVID-19?
+8. Does the weather have an impact on the COVID-19 propagation?
+9. Do the pollution rates have an impact on the COVID-19 propagation?
+10. Does the hospitals capacity have an impact on the number of deaths caused by the COVID-19? Which countries are mostly impacted?
+
+
+## Objective
+The objective of this research is to understand the propagation of the COVID-19 in countries and more precisely in Canada. It means to identify factors that appear to impact the transmission rate of COVID-19. Understanding these factors will help to understand the propagation of the virus and know how to slow it down quicker.
+
+
+
+# Data Preparation
+
+
+## Datasets Source
+The datasets are taken from [CSV files](https://github.com/CSSEGISandData/COVID-19/tree/master/csse_covid_19_data/csse_covid_19_time_series) prepared by the John Hopkins University Center for Systems Science and Engineering.
+
+## Datasets Overview
+The dataset shared by the John Hopkins University Center for Systems Science and Engineering provides the information on the:
+
+- Country or region
+- Province or state
+- Latitude
+- Longitude
+- Date
+- Cummulative number of people confirmed with the COVID-19
+- Cummulative number of people that died from the COVID-19
+- Cummulative number of people that recovered from the COVID-19
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+source("Source/DataPreparation.R")
+source("Source/DataExploration.R")
+source("Source/Model.R")
+
+set.seed(1234)
+
+## Remove scientific notation (e.g. E-005).
+options(scipen = 999)
+
+## Set the title of all charts in the middle.
+theme_update(plot.title = element_text(hjust = 0.5))
+
+
+dataset <- GetPreparedDataset()
+```
+
+
+
+# Dataset Exploration
+
+
+## World Overall
+
+
+### Daily Progression
+The objective is to know the distribution of the number of people infected, dead and that recovered from the COVID-19 over days in the world.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+progression.overall <- GetOverallProgression(dataset)
+knitr::kable(tail(progression.overall, n = 14), row.names = FALSE)
+Scatter.ShowProgression(progression.overall)
+
+state.total <- GetTotalPerCountryState(dataset)
+country.total <- GetTotalPerCountry(state.total)
+cat("Number of countries:", nrow(country.total), "\n")
+cat("Total infected:", sum(country.total$Total.Infected), "\n")
+cat("Total deaths:", sum(country.total$Total.Deaths), "\n")
+cat("Total recovered:", sum(country.total$Total.Recovered), "\n")
+cat("Total actives:", sum(country.total$Total.Infected - country.total$Total.Deaths - country.total$Total.Recovered), "\n\n")
+
+cat("Percentage of deaths over infected:", sum(country.total$Total.Deaths) / sum(country.total$Total.Infected) * 100, "\n")
+cat("Percentage of recovered over infected:", sum(country.total$Total.Recovered) / sum(country.total$Total.Infected) * 100, "\n\n")
+```
+
+
+### Countries Breakdown
+The objective is to show in which countries there are the most infected people until today.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+knitr::kable(head(country.total, n=20))
+BarChart.ShowTotalByCountry(head(country.total, n=20))
+```
+
+
+### Percentages Over Population
+The objective is to know which countries have the worst ratio of deaths and infected people over their population.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+country.total <- AddPopulationToDataset(country.total)
+country.total.percentages <- GetPercentageOf(country.total)
+
+country.total.percentages.infected <- head(country.total.percentages %>% arrange(desc(Percent.Infected)), n = 20)
+knitr::kable(country.total.percentages.infected)
+BarChart.ShowPercentOverPopulation(country.total.percentages.infected)
+
+country.total.percentages.deaths <- head(country.total.percentages %>% arrange(desc(Percent.Deaths)), n = 20)
+knitr::kable(country.total.percentages.deaths)
+BarChart.ShowPercentOverPopulation(country.total.percentages.deaths)
+```
+
+
+## Canada
+The objective is to knwo in which countries the number of infected people start to decrease progressively over days. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+country.progression <- GetCountryProgression(dataset, country = "Canada")
+
+infected.delta <- GetCountryFeatureDeltaBetweenDays(country.progression$Total.Infected)
+country.progression <- cbind(country.progression, infected.delta)
+deaths.delta <- GetCountryFeatureDeltaBetweenDays(country.progression$Total.Deaths)
+country.progression <- cbind(country.progression, deaths.delta)
+recovered.delta <- GetCountryFeatureDeltaBetweenDays(country.progression$Total.Recovered)
+country.progression <- cbind(country.progression, recovered.delta)
+
+knitr::kable(tail(country.progression, n=14), row.names = FALSE)
+
+country.progression$infected.delta <- NULL
+country.progression$deaths.delta <- NULL
+country.progression$recovered.delta <- NULL
+Scatter.ShowProgression(country.progression)
+Scatter.ShowCountryDeltaProgression(country.progression)
+```
+
+
+
+## Countries With Stable or Decreasing Propagation
+The objective is to identify all countries whose propagation is stable or is decreasing. In order to find these countries, we have to define what precisely is the meaning of _stable or decreasing propagation_. 
+
+Let $I(t)$ be the number of infected people at day $t \in \mathbb{N}$. If we take the difference between the number of infected people at day $t$ and $t+1$, we get the **propagation velocity**. In mathematical terms, it is expressed as
+$$
+\Delta I(t) = \frac{I(t + 1) - I(t)}{(t+1) - t} = I(t + 1) - I(t)
+$$
+which can be seen as the derivative of $I(t)$ but on a discrete case. The same logic is used to define the **propagation acceleration** where we look at the difference between the propagation velocity at day $t$ and $t+1$ expressed as
+$$
+\Delta^2 I(t) = \frac{\Delta I(t + 1) - \Delta I(t)}{(t+1) - t} = \Delta I(t + 1) - \Delta I(t) = I(t+2) - 2I(t+1) + I(t).
+$$
+
+The propagation is said **stable** (flatten the curve) if and only if there is neglictable acceleration or deceleration meainng that $\Delta^2 I(t) \approx 0$. Therefore, we need to find countries whose acceleration of the propagation is $\Delta^2 I(t) \leq 0$. However, some of the values of $I(t)$ contained in the dataset may be aberrant values.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+infected.delta <- GetCountryFeatureDeltaBetweenDays(infected.delta)
+country.progression <- cbind(country.progression, infected.delta)
+
+knitr::kable(tail(country.progression, n=14), row.names = FALSE)
+
+#country.progression$infected.delta <- NULL
+Scatter.ShowCountryDeltaProgression(country.progression)
+
+infected.acceleration.mean <- mean(infected.delta)
+infected.acceleration.var <- var(infected.delta)
+infected.acceleration.sd <- sd(infected.delta)
+```
+
+
+It comes now the following questions:
+
+1. What is the range of values considerated as approximative to 0 in the expression $\Delta^2 I(t) \approx 0$? How do we determine that range of values?
+2. What are the rules to determine that a value $\Delta I(t)$ is categorized as an aberrant value?
+
+
+### Aberrant Values Detection Model
+Assuming that the data are independent and identically distributed (i.i.d.) between days, the idea is to assume that the propagation accelaration is normally distributed (equivalently $\Delta^2 I(t) \sim N(\mu, \sigma^2)$). The mean $\mu$ is expressed as 
+$$
+\mu = \frac{1}{n-2} \sum_{t = 1}^{n - 2} \Delta^2 I(t)
+$$
+where $n$ is the number of observations in the dataset. The variance is expressed as
+$$
+\sigma^2 = \frac{1}{n-2} \sum_{t = 1}^{n-2} (\Delta^2 I(t) - \mu)^2.
+$$
+Let's take the data of the Canada as an example. The mean of the propagation acceleration is $\mu = `r infected.acceleration.mean`$ and the variance is $\sigma^2 = `r infected.acceleration.var`$. Therefore, we have $\Delta^2 I(t) \sim N(`r infected.acceleration.mean`, `r infected.acceleration.var`)$ where the positive standard deviation is $\sigma = `r infected.acceleration.sd`$.
+
+Therefore, the propagation acceleration is **aberrant** if and only if 
+$$
+\Delta^2 I(t) \in ]-\infty, \mu - 2\sigma] \cup [\mu + 2\sigma, \infty[.
+$$
+For example, non-aberrant propagation acceleration values in the Canada have to be inclusively between `r infected.acceleration.mean - 2*infected.acceleration.sd` and `r infected.acceleration.mean + 2*infected.acceleration.sd`. 
+```{r echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+lower_bound <- infected.acceleration.mean - 2*infected.acceleration.sd
+upper_bound <- infected.acceleration.mean + 2*infected.acceleration.sd
+non_aberrant <- infected.delta[infected.delta >= lower_bound & infected.delta <= upper_bound]
+```
+Actually, there are `r (1 - length(non_aberrant) / length(infected.delta)) * 100` % of the values that are aberrant.
+
+
+### Stable Propagation Model
+
+
+
+# Propagation Model
+The COVID-19 is currently a worldwide pandemic virus which is considered very virulant. It means that it propagate from infected people to non-infected people by direct or indirect contacts. For exemple, if an infected person touches an object, a non-infected person touching the same object after a short time is mostly at risk to be infected.
+
+The objective is to define a model that represents the propagation of the COVID-19 based on assumptions. However, we should take a look on variables that could have an impact on the propagation of the virus. Here is a list of some of those variables with our assumption:
+
+1. *Population density*: Countries with high population density should be more at risk because the contact between people is much easier hence more at risk to propagate the virus.
+
+2. *Age of people*: Elder people are mostly to die after being infected by the virus because they are more fragile than younger people.
+
+3. *People with chronic diseases*: People with chronic diseases like heart disease, lung disease, kidney disease, cancer, Alzheimer, diabetes, asthma and many others are more at risk to die after being infected.
+
+4. *Births and deaths*: Since the propagation of the virus is a long time period, during this peiod, some people will die from any other causes than the COVID-19 which will decrease the population. In the other case, some women will give birth which will increase the population. 
+
+5. *Safety measures*: During the pandemic, many countries adopted safety measures in order to help reducing the contamination between people. 
+
+6. *Number of COVID-19 tests*: Since these tests are expensive, they are limited. Coutries that are part of the third world coutries will have less tests than the other countries. Therefore, the number of tests should at least be function of the country.
+
+7. *Number of infected people not tested*: Some people that want to be tested because they might be infected by the COVID-19 are not tested because they are not considered as _essential_. By essential, we mean that the probability they infect others is much greater than other people that do not interact with people in their work (examples of essential people: police officers, nurses, docters). Other people could be infected and prefer to stay at home without asking to be tested.
+
+8. *Infected error factor*: It may happen that a person has been tested positive to the COVID-19 but is not infected at all. Thus, errors when testing could happen. 
+
+9. *Recovery error factor*: Errors could happen when people are considered to have recovered but in fact, they did not recover yet. They identified them as recovered too soon. 
+
+10. *Death error factor*: It may happen that a person has not died from the COVID-19 but is counted as being dead because of the COVID-19.
+
+We did not consider the immunity against the COVID-19 because we are incertain if there are people that will never be infected by the COVID-19 because they are immune. The same incertainty holds for people recovering from the COVID-19. We do not know if they are immune for the rest of their life or it is like Influenza, that they can be infected after a period of time (virus mutation for example).
+
+
+## States and Transitions
+A person can be in one of the following states during the propagation:
+
+- Susceptible (noted $S(t)$): People susceptible to be infected by the COVID-19 at day $t$.
+- Infected (noted $I(t)$): People tested positive to the COVID-19 at day $t$.
+- Dead (noted $D(t)$): People died from the COVID-19 at day $t$.
+- Recovered (noted $R(t)$): People recovered from the COVID-19 at day $t$.
+
+Initially, all people in the population are in the _Susceptible_ state. Then, it needs at least one person to start the propagation of the virus. This starts at day 1 (`r head(dataset$Date, 1)`) given in our dataset and ends actually on `r tail(dataset$Date, 1)`.
+
+Here is a state diagram describing the interaction between the states:
+```{r pressure, echo=FALSE, out.width = '100%'}
+knitr::include_graphics("Images/Infection_States.png")
+```
+
+The arrows between the states represents the transitions between 2 states. 
+
+
+## Assumptions
+The following assumptions are made to simplify the model:
+
+1. A person taken randomly in the population has the same probabilities to be infected than any other person taken randomly in the population (it follows a uniform distribution). Therefore, any people have the same probabilities (homogenous population) to be infected without considering their age or if they have a chronical disease.
+
+2. An infected person could stay infected the next day or could recover or die. There is no error made when a person is categorized as infected by the COVID-19. It means that it is not possible for a person to be in the _Infected_ state and then transits back to the _Susceptible_ state because an error has been made.
+
+3. Every person that recovers from the COVID-19 are immune against the COVID-19. It means that once a person recovered, that person cannot be infected anymore. Therefore, there is no transition between the _Recovered_ state and the _Susceptible_ state or _Infected_ state.
+
+4. During the propagation of the virus, there are neither births nor deaths (demography is ignored). The initial population is fixed to a constant $N$.
+
+5. We know that there are more people infected than what the dataset is providing. Many circumstances make that these people have not been tested yet against the COVID-19. For simplicity, we assume that that the dataset provides the right values of infected people. It means that we will not add an additional estimator to estimate the number of susceptible people that are in fact infected but not tested yet. However, we know that this assumption is not representative of the reality because the number of tests is limited. Indeed, some people that want to be tested because they have the COVID-19 symptomes are not tested because they are not considered as _essential_. By essential, we mean that the probability that they infect others is much greater than other people that do not interact with people in their work (e.g. police officers, nurses, docters). These tests are also expensive which also explain why they are limited.
+
+6. There are no safety measures taken during the pandemy. It means that the model is not considering the quarantine and social distancing between people which should help to reduce the probabilities of contamination by contacts.
+
+7. All susceptible people will be contaminated one day or another. It does take for account that some of the susceptible people could be immune against the virus, could never be contaminated or have not been tested but got infected by the COVID-19 and recovered.
+
+8. The density of the population is independent of the propagation of the COVID-19. Thus, the population density is not considered in our model. 
+
+
+## SIR Epidemic Model 
+According to the assumptions, there are 3 transition phases between states on which our model is based:
+
+- From _Susceptible_ to _Infected_ between days $t$ and $t+1$
+- From _Infected_ to _Recovered_ between days $t$ and $t+1$
+- From _Infected_ to _Dead_ between days $t$ and $t+1$
+
+For exemple, if at day $t = 1$ there are 2 infected people and at day $t = 2$, there are 5 infected people and 1 dead, then between days $t = 1$ and $t = 2$, there are 4 people that transited from the _Susceptible_ state to the _Infected_ state and 1 person transited from the _Infected_ state to the _Dead_ state.
+
+Per assumption 4, let the initial fixed population noted $N$ be 
+$$
+N = S(t) + I(t) + R(t) + D(t)
+$$ 
+where $S(t)$ will decrease while $I(t) + R(t) + D(t)$ will increase over days. Let $I_0 > 0$ be the initial number of people infected. On the first day of the propagation, there has to have at least one person infected in order to prapagate the virus to susceptible people. Generally, at this initial state, there are neither recovered nor dead people because they have to be infected before. However, it depends on the initial values given in the dataset. It may happen that the data have been gathered later like it is for our dataset.
+
+Per assumption 1, each infected person can be in contact with susceptible people and has the probability $\beta$ to infect each of them. Therefore, each infected person generates $\beta S(t)$ infected people every day. This is true for all infected people ($I(t)$), therefore the total number of infected people generated is $\beta S(t)I(t)$. The population will then decrease at this rate. 
+
+The transition between the suceptible state and the infected state is represented by the equation
+$$
+\frac{\partial S(t)}{\partial t} = -\beta S(t)I(t).
+$$
+
+Per assumption 2, there is a probability $\gamma$ that infected people will recover (transition from _Infected_ to _Recovered_ state) or a probability of $\alpha$ that an infected person will die (transition from _Infected_ to _Dead_ state) fromt day $t-1$ to $t$. The transitions between the _Infected_ state and the _Recovered_ state or _Dead_ state are given by 
+$$
+\begin{aligned}
+  \frac{\partial R(t)}{\partial t} &= \gamma I(t) \\
+  \frac{\partial D(t)}{\partial t} &= \alpha I(t).
+\end{aligned}
+$$
+
+As the recovered people increase of $\gamma I(t)$ and the dead people increase of $\alpha I(t)$, the number of infected people decrease of $(\gamma + \alpha) I(t)$. We deduce that
+$$
+\frac{\partial I(t)}{\partial t} = \beta S(t)I(t) - (\gamma + \alpha) I(t).
+$$
+We have the following equations that represent our state transition model:
+$$
+\begin{aligned}
+  \frac{\partial S(t)}{\partial t} &= -\beta S(t)I(t) \\
+  \frac{\partial I(t)}{\partial t} &= \beta S(t)I(t) - (\gamma + \alpha) I(t) \\
+  \frac{\partial R(t)}{\partial t} &= \gamma I(t) \\
+  \frac{\partial D(t)}{\partial t} &= \alpha I(t)
+\end{aligned}
+$$
+
+Let $R_0 = \frac{\beta}{\gamma + \alpha}$ be the number of infected people over the revovered and dead ones where $0 < \gamma + \alpha \leq 1$. We expect that $R_0 > 1$ will increase during the rising part of the propagation (contamination phase). Then, we expect that $R_0$ will decrease over the days and be nearer to $0$ because the contamination phase will slow down while the recovery and death phases will increase faster. Finally, all phases will stabilize slowly to $R_0 = 1$. 
+
+
+## Example
+The example is based on the data we have for the Canada in this dataset. The first infected person appears to be on `r GetDateOfFirstConfirmedInCountry(dataset, country = "Canada")`. 
+```{r echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+options(digits=10)
+
+alpha <- 0.0065
+beta <- 0.0000000045
+gamma <- 0.045
+N <- 37500000
+infected <-1
+recovered <- 0
+deaths <- 0
+
+ds <- -beta*(N - infected)*infected
+dr <- gamma*infected
+dd <- alpha*infected
+```
+
+Thus, let $I(0) = `r infected`$, $R(0) = `r recovered`$, $D(0) = `r deaths`$ and fix the population to $N = `r N`$ people. It follows that $S(0) = `r N - infected`$. Lets also fix the model parameters to $\alpha = `r alpha`$, $\beta = `r beta`$ and $\gamma = `r gamma`$.
+
+Lets see the results of the first iteration:
+$$
+\begin{aligned}
+  \frac{\partial S(t)}{\partial t} &= `r -beta` \times `r N - infected` \times `r infected` = `r ds` \\
+  \frac{\partial I(t)}{\partial t} &= `r beta` \times `r N - infected` \times `r infected` - `r gamma` \times `r infected` - `r alpha` \times `r infected` = `r -ds - dr - dd` \\
+  \frac{\partial R(t)}{\partial t} &= `r gamma` \times `r infected` = `r dr` \\
+  \frac{\partial D(t)}{\partial t} &= `r alpha` \times `r infected` = `r dd`
+\end{aligned}
+$$
+Therefore, we obtain $I(1) = `r infected + ds`$, $S(1) = `r N - infected + ds`$, $R(1) = `r dr`$ and $D(1) = `r dd`$.
+
+Lets simulate our model for 100 days to see the propression of each state over the days.
+```{r echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+initial.values <- list(Population = N,
+                       Infected = infected,
+                       Recovered = recovered,
+                       Deaths = deaths)
+
+model.dataset <- BuildDatasetFromSIRModel(days = 120, 
+                                          initial.date = GetDateOfFirstConfirmedInCountry(dataset, country = "Canada"),
+                                          initial.SIR = initial.values, 
+                                          alpha = alpha, 
+                                          beta = beta, 
+                                          gamma = gamma)
+
+features.numeric <- !names(model.dataset) %in% c("Date")
+model.dataset[, features.numeric]  <- lapply(model.dataset[, features.numeric] , trunc)
+
+knitr::kable(model.dataset)
+model.dataset$Susceptibles <- NULL
+Scatter.ShowProgression(model.dataset)
+```
+
+
+## Model Representation With Markov Chain
+Let $X = (X_t)_{t \geq  0}$ be a sequence of random variables where each random variable is representing a person $X$ at day $t \geq 0$. Let $\mathbb{E} = \{S, I, R, D\}$ the COVID-19 state space. At any day $t$, a person $X_t$ has to be in a state of $\mathbb{E}$. If $i, j \in \mathbb{E}$, then $\mathbb{P}(X_{t} \in j | X_{t-1} \in i) = p_{i,j}$. A person at day $t=0$ as to start in a state of $\mathbb{E}$.
+
+The probability that a susceptible person becomes infected at day $t$ is defined as $\mathbb{P}(X_{t} \in I | X_{t-1} \in S) = \beta$. The susceptible people that do not transit to the infected state is expressed as $\mathbb{P}(X_{t} \in S | X_{t-1} \in S) = 1 - \beta$. Per assumption 5, it is impossible to transit from the _Infected_ state to the _Susceptible_ state. Therefore, we have $\mathbb{P}(X_{t} \in S | X_{t-1} \in I) = 0$.
+
+The assumption 2 states that an infexcted person can transit to the death state or to the recovery state. It means that $\mathbb{P}(X_{t} \in R | X_{t-1} \in I) = \gamma$ and $\mathbb{P}(X_{t} \in D | X_{t-1} \in I) = \alpha$. Since the sets of recovered $R$ and deaths $D$ are mutually disjoint, we have that 
+$$
+\mathbb{P}(X_{t} \in R \cup D | X_{t-1} \in I) = \mathbb{P}(X_{t} \in R | X_{t-1} \in I) + \mathbb{P}(X_{t} \in D | X_{t-1} \in I) = \gamma + \alpha
+$$
+We deduce that the remaining infected people that will stay in the _Infected_ state (will not transit to another state on the next day) from day $t-1$ to day $t$ is $\mathbb{P}(X_{t} \in I | X_{t-1} \in I) = 1 - \alpha - \gamma$.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+matrix.transition <- matrix(c(1 - beta, beta, 0, 0, 
+                              0, 1 - gamma - alpha, gamma, alpha, 
+                              0, 0, 1, 0,
+                              0, 0, 0, 1), nrow = 4, byrow = FALSE)
+states.name <- c("Susceptible", "Infected", "Recovered", "Dead")
+TransitionMatrix.ShowDiagram(states.name, matrix.transition)
+```
+
+
+The transition matrix (noted $P$) is the following considering the order in $\mathbb{E}$ and the transition between day $t - 1$ and day $t$:
+$$
+P = 
+\begin{bmatrix}
+    p_{S, S} & p_{S, I} & p_{S, R} & p_{S, D} \\
+    p_{I, S} & p_{I, I} & p_{I, R} & p_{I, D} \\
+    p_{R, S} & p_{R, I} & p_{R, R} & p_{R, D} \\
+    p_{D, S} & p_{D, I} & p_{D, R} & p_{D, D}
+\end{bmatrix}
+=
+\begin{bmatrix}
+    1 - \beta & \beta & 0 & 0 \\
+    0 & 1 - \alpha - \gamma & \gamma & \alpha \\
+    0 & 0 & 1 & 0 \\
+    0 & 0 & 0 & 1 
+\end{bmatrix}
+$$
+Let's assume that there is an infected person, no deaths and no recovery on the first day. Including that there are $N - 1$ susceptible people, this means that if $\mathbf{x}^{(0)}$ is the initial vector, we have
+$$
+\mathbf{x}^{(1)} = \mathbf{x}^{(0)} P
+= \begin{bmatrix}
+      N - 1 & 1 & 0 & 0
+  \end{bmatrix}
+  \begin{bmatrix}
+    1 - \beta & \beta & 0 & 0 \\
+    0 & 1 - \alpha - \gamma & \gamma & \alpha \\
+    0 & 0 & 1 & 0 \\
+    0 & 0 & 0 & 1 
+\end{bmatrix}  
+=
+\begin{bmatrix}
+    (N - 1)(1 - \beta) & (N - 1)\beta + (1 - \alpha - \gamma) & \gamma & \alpha
+\end{bmatrix}
+$$
+On the second day, we have 
+$$
+\mathbf{x}^{(2)} = \mathbf{x}^{(1)} P 
+=
+\begin{bmatrix}
+    (N - 1)(1 - \beta)^2 & \\
+    \beta(N - 1)((1 - \beta) + (1 - \alpha - \gamma)) + (1 - \alpha - \gamma)^2 & \\
+    \beta(N - 1)\gamma + \gamma((1 - \alpha - \gamma) + 1) & \\
+    \beta(N - 1)\alpha + \alpha ((1 - \alpha - \gamma) + 1)
+\end{bmatrix}^T
+$$
+For $n$ days, we have $\mathbf{x}^{(n)} = \mathbf{x}^{(0)} P^n$. By induction on $n \geq 1$, one shows that
+$$
+\mathbf{x}^{(n)} = \mathbf{x}^{(0)} P^n
+=
+\begin{bmatrix}
+    (N - 1)(1 - \beta)^n & \\
+    \beta(N - 1) \sum\limits_{i = 0}^{n-1} (1-\beta)^{n-1-i} (1-\alpha-\gamma)^i + (1 - \alpha - \gamma)^n & \\
+    \beta(N - 1)\gamma \sum\limits_{i = 0}^{n-2} (1-\beta)^i (1 - \alpha - \gamma)^{n - 2 - i} + \gamma \sum\limits_{i = 0}^{n-1} (1 - \alpha - \gamma)^i & \\
+    \beta(N - 1)\alpha \sum\limits_{i = 0}^{n-2} (1-\beta)^i (1 - \alpha - \gamma)^{n - 2 - i} + \alpha \sum\limits_{i = 0}^{n-1} (1 - \alpha - \gamma)^i 
+\end{bmatrix}^T
+$$
+Let's see what is the probability law $\mathbf{x}$. We have to find $\mathbf{x} = \lim\limits_{n \rightarrow \infty} \mathbf{x}^{(n)}$. We calculate this limit term by term in $\mathbf{x}^{(n)}$. The first term:
+$$
+\lim\limits_{n \rightarrow \infty} (N - 1)(1 - \beta)^n = 0
+$$
+because $0 < \beta \leq 1$ then $0 \leq (1 - \beta) < 1$. For the second term, we have that
+$$
+\lim\limits_{n \rightarrow \infty} \beta(N - 1) \sum\limits_{i = 0}^{n-1} (1-\beta)^{n-1-i} (1-\alpha-\gamma)^i + (1 - \alpha - \gamma)^n 
+= \beta(N - 1) \lim\limits_{n \rightarrow \infty} \sum\limits_{i = 0}^{n-1} (1-\beta)^{n-1-i} (1-\alpha-\gamma)^i + \lim\limits_{n \rightarrow \infty} (1 - \alpha - \gamma)^n = 0.
+$$
+Indeed, we get $\lim\limits_{n \rightarrow \infty} (1 - \alpha - \gamma)^n = 0$ because $0 \leq(1 - \alpha - \gamma) < 1$. We also have that $\lim\limits_{n \rightarrow \infty} \sum\limits_{i = 0}^{n-1} (1-\beta)^{n-1-i} (1-\alpha-\gamma)^i = 0$ because $\lim\limits_{n \rightarrow \infty} (1-\beta)^{n-1-i} = 0$ since $0 \leq \beta < 1$.
+For the third term, we have that
+$$
+\beta(N - 1)\gamma \lim\limits_{n \rightarrow \infty} \sum\limits_{i = 0}^{n-2} (1-\beta)^i (1 - \alpha - \gamma)^{n - 2 - i} + \gamma \lim\limits_{n \rightarrow \infty} \sum\limits_{i = 0}^{n-1} (1 - \alpha - \gamma)^i = \gamma \lim\limits_{n \rightarrow \infty} \sum\limits_{i = 0}^{n-1} (1 - \alpha - \gamma)^i = \gamma \sum\limits_{i = 0}^{\infty} (1 - \alpha - \gamma)^i
+$$
+because using the same properties as for the second term, the first limit is evaluated to $0$. For the second limit, we have a geometric series of ratio $(1 - \alpha - \gamma) < 1$. Note that it is impossible to have $(1 - \alpha - \gamma) = 1$ because it would mean that $\alpha = \gamma = 0$ which contradicts our assumption stating that an infected person at day $t$ has to transit to either the _Recovered_ state or the _Dead_ state at day $t + k$ where $k \geq 1$. 
+
+Therefore, we have that
+$$
+\gamma \sum\limits_{i = 0}^{\infty} (1 - \alpha - \gamma)^i = \frac{\gamma}{1 - (1-\alpha-\gamma)} = \frac{\gamma}{\alpha + \gamma}.
+$$
+For the fourth term, we use the same logic as the third term
+$$
+\beta(N - 1)\alpha \lim\limits_{n \rightarrow \infty} \sum\limits_{i = 0}^{n-2} (1-\beta)^i (1 - \alpha - \gamma)^{n - 2 - i} + \alpha \lim\limits_{n \rightarrow \infty} \sum\limits_{i = 0}^{n-1} (1 - \alpha - \gamma)^i = \alpha \lim\limits_{n \rightarrow \infty} \sum\limits_{i = 0}^{n-1} (1 - \alpha - \gamma)^i = \frac{\alpha}{\alpha + \gamma}.
+$$
+Therefore, the final result is 
+$$
+\mathbf{x} = 
+\begin{bmatrix}
+      0 & 0 & \frac{\gamma}{\alpha + \gamma} & \frac{\alpha}{\alpha + \gamma}
+  \end{bmatrix}.
+$$
+We expect that with the SIR model based on our assumptions, all susceptible people will be infected and then, all infected people will either recover or die. In other terms, we expect that at the end of the COVID-19 pandemic, a percentage of the population will recover while the rest of the population will die. Therefore, our vector $\mathbf{x}$ makes sense because $\frac{\gamma}{\alpha + \gamma} + \frac{\alpha}{\alpha + \gamma} = 1$.
+
+If we take back our example where $\gamma = `r gamma`$ and $\alpha = `r alpha`$, we obtain 
+$$ 
+\frac{\gamma}{\alpha + \gamma} = \frac{`r gamma`}{`r gamma + alpha`} = `r gamma / (alpha + gamma)`
+$$
+This means that `r gamma / (alpha + gamma) * 100` % of the population will recover and `r (1 - (gamma / (alpha + gamma))) * 100` % will die once the pandemic will end.
+
+
+## SIR Model Solving
+The objective is to solve the first-order differential equations defined for the 3 transitions in order to find $S(t)$, $I(t)$ and $R(t)$. 
+
+From the first equation, we obtain
+$$
+I(t) = \frac{-1}{\beta S(t)} \frac{\partial S(t)}{\partial t}.
+$$
+Then, substituting $I(t)$ in the third equation gives
+$$
+\frac{\partial R(t)}{\partial t} = \frac{-\gamma}{\beta S(t)} \frac{\partial S(t)}{\partial t}.
+$$
+We know that $\frac{1}{S(t)} \frac{\partial S(t)}{\partial t} = \frac{\partial \ln S(t)}{\partial t}$. Thus, we have that
+$$
+\frac{\partial R(t)}{\partial t} = \frac{-\gamma}{\beta} \frac{\partial \ln S(t)}{\partial t}.
+$$
+Integrating on both sides gives
+$$
+R(t) = \frac{-\gamma}{\beta} \ln S(t) + S_0
+$$
+where $S_0$ is the integration constant representing the initial population. We deduce that $\ln S(t) + S_0 = \frac{-\beta}{\gamma}R(t)$. It follows that
+$$
+S(t) = S_0 e^{\frac{-\beta}{\gamma}R(t)}.
+$$
+We know that $\frac{\partial I(t)}{\partial t} = -\frac{\partial S(t)}{\partial t} - \frac{\partial R(t)}{\partial t}$. After integrating on $t$, we obtain
+$$
+I(t) = -S(t) - R(t) + I_0
+$$
+where $I_0$ is the integration constant. From $R(t)$ and $I(t)$, we deduce that
+$$
+I(t) - I_0 = \frac{\gamma}{\beta} \ln S(t) - S(t)
+$$
+We have $I(t)$ in function of $S(t)$ but we want to know what is $S(t)$ in function of $I(t)$. Applying the exponential function on both sides, we get
+$$
+e^{I(t) - I_0} = e^{\frac{\gamma}{\beta} \ln S(t) - S(t)}
+$$
+With $I_0$ as an arbitraty constant and using the logarithm property where $a \ln x = \ln x^a$, we have
+$$
+I_0 e^{I(t)} = e^{\ln S(t)^{\frac{\gamma}{\beta}} - S(t)}.
+$$
+After simplifications and usage of the exponential properties, we obtain
+$$
+S^{\frac{\gamma}{\beta}}(t) e^{-S(t)} = I_0 e^{I(t)}.
+$$
+We raise the expression to $\frac{\beta}{\gamma}$ on both sides to get
+$$
+S(t)e^{\frac{-\beta}{\gamma} S(t)} = (I_0 e^{I(t)})^{\frac{\beta}{\gamma}}.
+$$
+We multiply both sides by $\frac{-\beta}{\gamma}$ to get
+$$
+\frac{-\beta}{\gamma} S(t)e^{\frac{-\beta}{\gamma} S(t)} = \frac{-\beta}{\gamma} (I_0 e^{I(t)})^{\frac{\beta}{\gamma}}.
+$$
+We obtain the form $we^w = z$ where $w = \frac{-\beta}{\gamma} S(t)$ and $z = \frac{-\beta}{\gamma} (I_0 e^{I(t)})^{\frac{\beta}{\gamma}}$. We can use the $W$ Lambert function stating that for any $w, z \in \mathbb{C}$, we have $we^w = z \Leftrightarrow w = W(z)$. Therefore, we obtain
+$$
+S(t) = \frac{-\gamma}{\beta} W\left(\frac{-\beta}{\gamma} (I_0 e^{I(t)})^{\frac{\beta}{\gamma}}\right).
+$$
+
+
