@@ -1,13 +1,29 @@
 library(ggplot2)
 library(maps)
 library(diagram)
+library(latex2exp)
 
+
+PieChart.ShowPercentageOverCumulativeInfected <- function(dataset, grand_total)
+{
+    ggplot(dataset, aes(x = "", y = Total, fill = State.Names)) +
+        geom_bar(stat = "identity", width = 1) +
+        coord_polar(theta = "y", start = 0) +
+        geom_text(aes(label = paste0(round(Total / grand_total * 100, 2), "%")), position = position_stack(vjust = 0.5)) +
+        labs(x = NULL, y = NULL) +
+        ggtitle("Pie Chart of the COVID-19 Propagation States Percentage") +
+        theme_classic() + 
+        theme(axis.line = element_blank(),
+              axis.text = element_blank(),
+              axis.ticks = element_blank(),
+              plot.title = element_text(hjust = 0.5, color = "#666666"))
+}
 
 BarChart.ShowTotalByCountry <- function(dataset)
 {
     data <- melt(dataset, id_vars="Country.Region")
     ggplot(data, aes(x = Country.Region, y = value, fill = variable)) +
-        geom_bar(stat = "identity", position='dodge') +
+        geom_bar(stat = "identity") +
         ggtitle("Top 20 of the Number of People Infected by Country") +
         labs(x = "Country", y = "Number of Infected People") +
         theme(axis.text.x = element_text(angle = 90, hjust = 1))
@@ -26,23 +42,30 @@ Scatter.ShowProgression <- function(dataset)
 }
 
 
-Scatter.ShowCountryDeltaProgression <- function(dataset)
+Scatter.ShowCountryDeltaProgression <- function(dataset, feature)
 {
-    ggplot(dataset, aes(x = Date, y = infected.delta)) +
+    variable <- ifelse(feature == "infected.delta", "Velocity", "Acceleration")
+    title <- paste("Daily Propagation", variable, "of Infected People")
+    
+    ggplot(dataset, aes_string(x = "Date", y = feature)) +
         geom_bar(stat = "identity") +
-        ggtitle("Daily increase of infected people") +
-        labs(x = "Date", y = "Infected Delta") +
+        ggtitle(title) +
+        labs(x = "Date", y = variable) +
         theme(axis.text.x = element_text(angle = 90, hjust = 1))
 }
 
 
 BarChart.ShowPercentOverPopulation <- function(dataset)
 {
-    data <- melt(dataset, id_vars="Country")
-    ggplot(data, aes(x = Country, y = value, fill = variable)) +
-        geom_bar(stat = "identity", position='dodge') +
-        #ggtitle("Top 20 of the Number of People Infected by Country") +
-        labs(x = "Country", y = "Percentage") +
+    feature <- colnames(dataset)[2]
+    variable <- unlist(strsplit(feature, split='.', fixed=TRUE))[2]
+    title <- paste("Top 20 of the Percentage of People", variable, "by Country")
+    y <- paste("Percentage of People", variable)
+    
+    ggplot(dataset, aes_string(x = "Country.Region", y = feature)) +
+        geom_bar(stat = "identity") +
+        ggtitle(title) +
+        labs(x = "Country", y = y) +
         theme(axis.text.x = element_text(angle = 90, hjust = 1))
 }
 

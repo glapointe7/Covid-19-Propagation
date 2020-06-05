@@ -69,20 +69,22 @@ GetTotalPerCountry <- function(dataset)
             group_by(Country.Region) %>%
             summarise(Total.Infected = sum(Total.Infected),
                       Total.Deaths = sum(Total.Deaths),
-                      Total.Recovered = sum(Total.Recovered)) %>%
+                      Total.Recovered = sum(Total.Recovered),
+                      Total.Infected.Active = sum(Total.Infected) -  sum(Total.Deaths) - sum(Total.Recovered)) %>%
             arrange(desc(Total.Infected))
     )
 }
 
 
-GetOverallProgression <- function(dataset)
+GetWorldProgression <- function(dataset)
 {
     return(
         dataset %>%
             group_by(Date) %>%
             summarise(Total.Infected = sum(Confirmed),
                       Total.Deaths = sum(Deaths),
-                      Total.Recovered = sum(Recovered))
+                      Total.Recovered = sum(Recovered),
+                      Active.Infected = sum(Confirmed) - sum(Deaths) - sum(Recovered))
     )
 }
 
@@ -116,8 +118,24 @@ GetDateOfFirstConfirmedInCountry <- function(dataset, country)
 
 GetPercentageOf <- function(dataset)
 {
-    return(data.frame(Country = dataset$Country.Region,
+    return(data.frame(Country.Region = dataset$Country.Region,
+                      Population = dataset$Population,
                       Percent.Infected = dataset$Total.Infected / dataset$Population * 100,
-                      Percent.Deaths = dataset$Total.Deaths / dataset$Population * 100, 
-                      Percent.Recovered = dataset$Total.Recovered / dataset$Population * 100))
+                      Percent.Deaths = dataset$Total.Deaths / dataset$Population * 100))
+}
+
+
+GetCountriesWithWorstPercentageOfDeathsOverInfected <- function(dataset)
+{
+    return(dataset %>%
+               mutate(Percent.Deaths = Total.Deaths / Total.Infected * 100) %>%
+               arrange(desc(Percent.Deaths)))
+}
+
+
+GetCountriesWithBestPercentageOfRecoveredOverInfected <- function(dataset)
+{
+    return(dataset %>%
+               mutate(Percent.Recovered = Total.Recovered / Total.Infected * 100) %>%
+               arrange(desc(Percent.Recovered), desc(Total.Infected)))
 }
