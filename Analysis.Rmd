@@ -287,6 +287,15 @@ knitr::kable(tail(country.progression[, !colnames(country.progression) %in% c("i
 
 Scatter.ShowProgression(country.progression[, c("Date", "Total.Infected", "Total.Deaths", "Total.Recovered")])
 Scatter.ShowCountryDeltaProgression(country.progression, "infected.delta")
+
+
+infected.total <- tail(country.progression$Total.Infected, n=1)
+deaths.total <- tail(country.progression$Total.Deaths, n=1)
+recovered.total <- tail(country.progression$Total.Recovered, n=1)
+infected.active.total <- infected.total - deaths.total - recovered.total
+canada.overall <- data.frame(State.Names = c("Deaths", "Recovered", "Active Infected"),
+                            Total = c(deaths.total, recovered.total, infected.active.total))
+PieChart.ShowPercentageOverCumulativeInfected(canada.overall, infected.total)
 ```
 
 
@@ -610,54 +619,96 @@ Dividing by $1 + N y(t)$ on both sides gives
 $$
 \frac{\frac{\partial y(t)}{\partial t}}{1 + N y(t)} = -\beta.
 $$
-Since $\int \frac{1}{1 + Ny(t)} dt = \frac{1}{N} \ln ( 1 + N y(t))$, we have
+Since $\int \frac{1}{1 + Ny(t)} dt = \frac{1}{N} \ln ( 1 + N y(t))$, we have, after multiplying by $N$ on both sides, that
 $$
-\frac{1}{N}\frac{\partial (\ln ( 1 + N y(t)))}{\partial t} = -\beta.
+\frac{\partial (\ln ( 1 + N y(t)))}{\partial t} = -N \beta.
 $$
-Integrating and multiplying by $N$ on both sides gives
+We know that $t \geq 0$, hence we have to integrate this last equation from $0$ to $t$ on both sides:
 $$
-\ln (1 + N y(t)) = -N (\beta t + I_0)
+\int_0^t \frac{\partial (\ln ( 1 + N y(x)))}{\partial x} dx = -N \beta \int_0^t dx
 $$
-where $I_0 \in \mathbb{R}$ is the integration constant. Using the exponential on both sides, it follows that
+which gives:
 $$
-1 + N y(t) = e^{-N (\beta t + I_0)}
+\ln (1 + N y(t)) - \ln (1 + Ny(0)) = -N \beta t.
+$$
+Using the substraction of logarithms property, we have:
+$$
+\ln \left(\frac{1 + N y(t)}{1 + Ny(0)}\right) = -N \beta t.
+$$
+
+Applying the exponential function on both sides, it follows that
+$$
+\frac{1 + N y(t)}{1 + Ny(0)} = e^{-N \beta t}
 $$
 which is equivalent to
 $$
-y(t) = \frac{e^{-N (\beta t + I_0)} - 1}{N}.
+y(t) = \frac{(1 + Ny(0)) e^{-N \beta t} - 1}{N}.
 $$
-Since $y(t) = -\frac{1}{I_c(t)}$, we have
+Since $y(t) = -\frac{1}{I_c(t)}$ and then $y(0) = -\frac{1}{I_c(0)}$, we have
 $$
-I_c(t) = \frac{N}{1 - e^{-N (\beta t + I_0)}}.
+I_c(t) = \frac{N}{1 - \left(1 - \frac{N}{I_c(0)}\right)e^{-N \beta t}}
 $$
-Using the same method to solve $\frac{\partial S(t)}{\partial t} = -\beta S(t) (N - S(t))$, we obtain
+where $I_c(0) > 0$ because having $I_c(0) = 0$ implies that there are no infected people and then the propagation cannot start. Using the same method to solve $\frac{\partial S(t)}{\partial t} = -\beta S(t) (N - S(t))$, we obtain
 $$
-S(t) = \frac{N}{1 + e^{N (\beta t + S_0)}}.
+S(t) = \frac{N}{1 + \left(\frac{N}{S(0)} - 1\right)e^{N \beta t}}
+$$
+where $S(0) > 0$ because having $S(0) = 0$ implies that there is no population initially which is impossible. 
+
+We know that $t \in [0, \infty[$ and $S(t), I_c(t) \in [0, N]$. Taking the limit to infinite days, we have for $I_c(t)$ that:
+$$
+\lim_{t \rightarrow \infty} \frac{N}{1 - \left(1 - \frac{N}{I_c(0)}\right)e^{-N \beta t}} = N
+$$
+and for the initial day:
+$$
+\lim_{t \rightarrow 0} \frac{N}{1 - \left(1 - \frac{N}{I_c(0)}\right)e^{-N \beta t}} = I_c(0).
+$$
+Taking the limit to infinite days, we have for $S(t)$ that:
+$$
+\lim_{t \rightarrow \infty} \frac{N}{1 + \left(\frac{N}{S(0)} - 1\right)e^{N \beta t}} = 0
+$$
+and for the initial day:
+$$
+\lim_{t \rightarrow 0} \frac{N}{1 + \left(\frac{N}{S(0)} - 1\right)e^{N \beta t}} = S(0).
 $$
 
+
+
 ### Number of Recovered and Deaths Models
-We know that $\frac{\partial R(t)}{\partial t} = \gamma I_c(t)$. Replacing $I_c(t)$ by the equation we found for $I_c(t)$ and integrating on both sides, we have to solve
+We know that $\frac{\partial R(t)}{\partial t} = \gamma I_c(t)$. Replacing $I_c(t)$ by the equation we found and integrating on both sides from $0$ to $t$, we have to solve
 $$
-R(t) = \int \frac{\gamma N}{1 - e^{-N (\beta t + I_0)}} dt.
+R(t) = \gamma N \int_0^t \frac{1}{1 - \left(1 - \frac{N}{I_c(0)}\right)e^{-N \beta x}} dx.
 $$
-Equivalently, by multiplying by $1 = \frac{e^{N (\beta t + I_0)}}{e^{N (\beta t + I_0)}}$, we get
+Equivalently, by multiplying by $1 = \frac{\left(\frac{I_c(0)}{I_c(0) - N}\right)e^{N \beta x}}{\left(\frac{I_c(0)}{I_c(0) - N}\right)e^{N \beta x}}$, we get
 $$
-R(t) = \gamma N \int \frac{e^{N (\beta t + I_0)}}{e^{N (\beta t + I_0)} - 1} dt.
+R(t) = \gamma N \int_0^t \frac{\left(\frac{I_c(0)}{I_c(0) - N}\right) e^{N \beta x}}{\left(\frac{I_c(0)}{I_c(0) - N}\right) e^{N \beta x} - 1} dx.
 $$
-Let $u = e^{N (\beta t + I_0)}$. Then, $du = N\beta e^{N (\beta t + I_0)}$ or equivalently $\frac{du}{N \beta} = u$. Replacing in $R(t)$ and solving give
+Let $u(x) = \left(\frac{I_c(0)}{I_c(0) - N}\right) e^{N \beta x}$. Then, $du = N \beta \left(\frac{I_c(0)}{I_c(0) - N}\right) e^{N \beta x} dx$ or equivalently $\frac{du}{N \beta} = u(x)dx$. Replacing in $R(t)$ and solving give:
 $$
 \begin{aligned}
-  R(t) &= \gamma N \int \frac{du}{N \beta (u - 1)} \\
-       &= \frac{\gamma}{\beta} \int \frac{du}{u - 1} \\
-       &= \frac{\gamma}{\beta} \ln |u - 1| + R_0
+  R(t) &= \gamma N \int_0^t \frac{du}{N \beta (u - 1)} \\
+       &= \frac{\gamma}{\beta} \int_0^t \frac{du}{u - 1} \\
+       &= \frac{\gamma}{\beta} (\ln |u(t) - 1| - \ln |u(0) - 1|)
 \end{aligned}
 $$
-where $R_0 \in \mathbb{R}$ is the integration constant. Replacing $u$ in the equation gives
+However, $u(0) =\left(\frac{I_c(0)}{I_c(0) - N}\right) e^{N \beta 0} = \left(\frac{I_c(0)}{I_c(0) - N}\right)$. We also remove the absolute values because the value evaluated in the logarithm functions are greater than 0. This gives:
 $$
-R(t) = \frac{\gamma}{\beta} \ln (e^{N (\beta t + I_0)} - 1) + R_0.
+R(t) = \frac{\gamma}{\beta} \left(\ln (u(t) - 1) - \ln \left(\frac{I_c(0)}{I_c(0) - N}\right) \right)
 $$
-The number of deaths at day $t$ is found the same way but $\gamma$ is replaced by $\alpha$
+Replacing $u(t)$ by $\left(\frac{I_c(0)}{I_c(0) - N}\right) e^{N \beta t}$ in the equation gives (including simplifications):
 $$
-D(t) = \frac{\alpha}{\beta} \ln (e^{N (\beta t + I_0)} - 1) + D_0.
+\begin{aligned}
+  R(t) &= \frac{\gamma}{\beta} \left(\ln \left(\left(\frac{I_c(0)}{I_c(0) - N}\right) e^{N \beta t} - 1\right) - \ln \left(\frac{I_c(0)}{I_c(0) - N}\right) \right) \\
+       &= \frac{\gamma}{\beta} \ln \left(e^{N \beta t} + \frac{N}{I_c(0)} - 1\right)
+\end{aligned}
+$$
+
+
+The number of deaths at day $t$ is found the same way but $\gamma$ is replaced by $\alpha$:
+$$
+D(t) = \frac{\alpha}{\beta} \ln \left(e^{N \beta t} + \frac{N}{I_c(0)} - 1\right).
 $$
 Finally, we know that the active cases of infection exclude the recovered and death people: $I_a(t) = I_c(t) - R(t) - D(t)$.
+
+
+### Simulation
+

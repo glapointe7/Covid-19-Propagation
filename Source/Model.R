@@ -42,3 +42,21 @@ BuildDatasetFromSIRModel <- function(days, initial.date, initial.SIR, alpha, bet
     
     return(dataset)
 }
+
+
+S <- function(t, N, beta, S0)
+{
+    return(N / (1 + exp(N * (beta * t + S0))))
+}
+
+
+Ic <- function(t, N, beta, I0)
+{
+    return(N / (1 - exp(-N * (beta * t + I0))))
+}
+
+
+R <- function(t, N, beta, gamma, I0) 
+{
+    
+}
