@@ -390,11 +390,11 @@ $$
 \frac{\partial S(t)}{\partial t} = -\beta S(t)I_c(t).
 $$
 
-Per assumption 2, there is a probability $\gamma$ that infected people will recover (transition from _Infected_ to _Recovered_ state) or a probability of $\alpha$ that an infected person will die (transition from _Infected_ to _Dead_ state) fromt day $t-1$ to $t$. The transitions between the _Infected_ state and the _Recovered_ state or _Dead_ state are given by 
+Per assumption 2, there is a probability $\gamma$ that active infected people will recover (transition from _Infected_ to _Recovered_ state) or a probability of $\alpha$ that an active infected person will die (transition from _Infected_ to _Dead_ state) fromt day $t-1$ to $t$. The transitions between the _Infected_ state and the _Recovered_ state or _Dead_ state are given by 
 $$
 \begin{aligned}
-  \frac{\partial R(t)}{\partial t} &= \gamma I_c(t) \\
-  \frac{\partial D(t)}{\partial t} &= \alpha I_c(t).
+  \frac{\partial R(t)}{\partial t} &= \gamma I_a(t) \\
+  \frac{\partial D(t)}{\partial t} &= \alpha I_a(t).
 \end{aligned}
 $$
 
@@ -402,9 +402,9 @@ We know that the number of susceptible people decreses when they become infected
 $$
 \frac{\partial I_c(t)}{\partial t} = -\frac{\partial S(t)}{\partial t} = \beta S(t)I_c(t).
 $$
-We did not remove the deaths and recovered people from the infected ones because in our case, the number of infected people is cumulative ($I_c$). However, to fit with our state diagram, we have to consider the **active** infected people ($I(t)$). This means that these people are infected by the COVID-19 but did neither recovered or died yet. Therefore, we have to subtract the deaths and recovered from the number of infected people:
+We did not remove the deaths and recovered people from the infected ones because in our case, the number of infected people is cumulative ($I_c$). However, to fit with our state diagram, we have to consider the **active** infected people ($I_a(t)$). This means that these people are infected by the COVID-19 but did neither recovered or died yet. Therefore, we have to subtract the deaths and recovered from the number of infected people:
 $$
-\frac{\partial I_a(t)}{\partial t} = -\frac{\partial S(t)}{\partial t} - \frac{\partial R(t)}{\partial t} - \frac{\partial D(t)}{\partial t} = \beta S(t)I_c(t) - (\gamma + \alpha) I_c(t).
+\frac{\partial I_a(t)}{\partial t} = -\frac{\partial S(t)}{\partial t} - \frac{\partial R(t)}{\partial t} - \frac{\partial D(t)}{\partial t} = \beta S(t)I_c(t) - (\gamma + \alpha) I_a(t).
 $$
 
 We have the following equations that represent our state transition model:
@@ -412,9 +412,9 @@ $$
 \begin{aligned}
   \frac{\partial S(t)}{\partial t} &= -\beta S(t)I_c(t) \\
   \frac{\partial I_c(t)}{\partial t} &= \beta S(t)I_c(t) \\
-  \frac{\partial I_a(t)}{\partial t} &= \beta S(t)I_c(t) - (\gamma + \alpha) I_c(t) \\
-  \frac{\partial R(t)}{\partial t} &= \gamma I_c(t) \\
-  \frac{\partial D(t)}{\partial t} &= \alpha I_c(t)
+  \frac{\partial I_a(t)}{\partial t} &= \beta S(t)I_c(t) - (\gamma + \alpha) I_a(t) \\
+  \frac{\partial R(t)}{\partial t} &= \gamma I_a(t) \\
+  \frac{\partial D(t)}{\partial t} &= \alpha I_a(t)
 \end{aligned}
 $$
 
@@ -429,10 +429,11 @@ options(digits=10)
 alpha <- 0.0065
 beta <- 0.0000000045
 gamma <- 0.045
-N <- 37500000
+N <- as.integer(GetCountryPopulation("Canada"))
 infected <-1
 recovered <- 0
 deaths <- 0
+days <- 120
 
 ds <- -beta*(N - infected)*infected
 dr <- gamma*infected
@@ -452,14 +453,14 @@ $$
 $$
 Therefore, we obtain $I(1) = `r infected + ds`$, $S(1) = `r N - infected + ds`$, $R(1) = `r dr`$ and $D(1) = `r dd`$.
 
-Lets simulate our model for 100 days to see the propression of each state over the days.
+Lets simulate our model for `r days` days to see the propression of each state over the days.
 ```{r echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
 initial.values <- list(Population = N,
                        Infected = infected,
                        Recovered = recovered,
                        Deaths = deaths)
 
-model.dataset <- BuildDatasetFromSIRModel(days = 120, 
+model.dataset <- BuildDatasetFromSIRModel(days = days, 
                                           initial.date = GetDateOfFirstConfirmedInCountry(dataset, country = "Canada"),
                                           initial.SIR = initial.values, 
                                           alpha = alpha, 
@@ -468,6 +469,7 @@ model.dataset <- BuildDatasetFromSIRModel(days = 120,
 
 features.numeric <- !names(model.dataset) %in% c("Date")
 model.dataset[, features.numeric]  <- lapply(model.dataset[, features.numeric] , trunc)
+model.dataset$Active.Infected <- model.dataset$Infected - model.dataset$Recovered - model.dataset$Deaths
 
 knitr::kable(model.dataset)
 model.dataset$Susceptibles <- NULL
@@ -674,41 +676,97 @@ $$
 
 
 ### Number of Recovered and Deaths Models
-We know that $\frac{\partial R(t)}{\partial t} = \gamma I_c(t)$. Replacing $I_c(t)$ by the equation we found and integrating on both sides from $0$ to $t$, we have to solve
+We know that $\frac{\partial R(t)}{\partial t} = \gamma I_a(t)$. But $I_a(t) = I_c(t) - R(t) - D(t)$ hence  
 $$
-R(t) = \gamma N \int_0^t \frac{1}{1 - \left(1 - \frac{N}{I_c(0)}\right)e^{-N \beta x}} dx.
+\frac{\partial R(t)}{\partial t} = \gamma(I_c(t) - R(t) - D(t)).
 $$
-Equivalently, by multiplying by $1 = \frac{\left(\frac{I_c(0)}{I_c(0) - N}\right)e^{N \beta x}}{\left(\frac{I_c(0)}{I_c(0) - N}\right)e^{N \beta x}}$, we get
+However, $R(t)$ and $D(t)$ are the same except that the constant $\alpha$ is used instead of $\gamma$. Let $R_D(t) = R(t) + D(t)$ and $k = \gamma + \alpha$. It comes that
 $$
-R(t) = \gamma N \int_0^t \frac{\left(\frac{I_c(0)}{I_c(0) - N}\right) e^{N \beta x}}{\left(\frac{I_c(0)}{I_c(0) - N}\right) e^{N \beta x} - 1} dx.
+\frac{\partial R_D(t)}{\partial t} = k(I_c(t) - R_D(t))
 $$
-Let $u(x) = \left(\frac{I_c(0)}{I_c(0) - N}\right) e^{N \beta x}$. Then, $du = N \beta \left(\frac{I_c(0)}{I_c(0) - N}\right) e^{N \beta x} dx$ or equivalently $\frac{du}{N \beta} = u(x)dx$. Replacing in $R(t)$ and solving give:
+which is equivalent to:
+$$
+\frac{\partial R_D(t)}{\partial t} + kR_D(t) = kI_c(t).
+$$
+This is a first-order differential equation. First, let's solve the homogeneous equation
+$$
+\frac{\partial R_D(t)}{\partial t} + kR_D(t) = 0.
+$$
+Hence, we have to solve the separated-variable equation:
+$$
+\frac{\partial R_D(t)}{\partial t} = -kR_D(t).
+$$
+After dividing by $R_D(t)$ on both sides:
+$$
+\frac{\partial R_D(t)}{R_D(t)} = -k\partial t.
+$$
+Then integrating both sides we obtain the general solution:
+$$
+R_D(t) = R_0 e^{-kt}
+$$
+where $R_0 \in \mathbb{R}$ is the integration constant. Suppose that $R_0$ is function of $t$ in $R_D(t)$ where $R_D(t) = R_0(t) e^{-kt}$ and substitute it in the initial equation:
 $$
 \begin{aligned}
-  R(t) &= \gamma N \int_0^t \frac{du}{N \beta (u - 1)} \\
-       &= \frac{\gamma}{\beta} \int_0^t \frac{du}{u - 1} \\
-       &= \frac{\gamma}{\beta} (\ln |u(t) - 1| - \ln |u(0) - 1|)
+  kI_c(t) &= \frac{\partial R_0(t) e^{-kt}}{\partial t} + kR_0(t) e^{-kt} \\
+          &= \frac{\partial R_0(t)}{\partial t} e^{-kt} + R_0(t) \frac{\partial e^{-kt}}{\partial t} + kR_0(t) e^{-kt} \\
+          &= \frac{\partial R_0(t)}{\partial t} e^{-kt} -kR_0(t)e^{-kt} + kR_0(t)e^{-kt} \\
+          &= \frac{\partial R_0(t)}{\partial t} e^{-kt}
 \end{aligned}
 $$
-However, $u(0) =\left(\frac{I_c(0)}{I_c(0) - N}\right) e^{N \beta 0} = \left(\frac{I_c(0)}{I_c(0) - N}\right)$. We also remove the absolute values because the value evaluated in the logarithm functions are greater than 0. This gives:
+It follows that
 $$
-R(t) = \frac{\gamma}{\beta} \left(\ln (u(t) - 1) - \ln \left(\frac{I_c(0)}{I_c(0) - N}\right) \right)
+\frac{\partial R_0(t)}{\partial t} = kI_c(t)e^{kt}.
 $$
-Replacing $u(t)$ by $\left(\frac{I_c(0)}{I_c(0) - N}\right) e^{N \beta t}$ in the equation gives (including simplifications):
+Knowing $I_c(t)$, we have to solve:
 $$
-\begin{aligned}
-  R(t) &= \frac{\gamma}{\beta} \left(\ln \left(\left(\frac{I_c(0)}{I_c(0) - N}\right) e^{N \beta t} - 1\right) - \ln \left(\frac{I_c(0)}{I_c(0) - N}\right) \right) \\
-       &= \frac{\gamma}{\beta} \ln \left(e^{N \beta t} + \frac{N}{I_c(0)} - 1\right)
-\end{aligned}
+R_0(t) = kN \int \frac{e^{kt} dt}{1 - \left(1 - \frac{N}{I_c(0)}\right)e^{-N \beta t}}.
 $$
-
-
-The number of deaths at day $t$ is found the same way but $\gamma$ is replaced by $\alpha$:
+Let $\delta = 1 - \frac{N}{I_c(0)}$. The previous equation is then written as
 $$
-D(t) = \frac{\alpha}{\beta} \ln \left(e^{N \beta t} + \frac{N}{I_c(0)} - 1\right).
+R_0(t) = kN \int \frac{e^{kt} dt}{1 - \delta e^{-N \beta t}}.
 $$
-Finally, we know that the active cases of infection exclude the recovered and death people: $I_a(t) = I_c(t) - R(t) - D(t)$.
+The result of this integral is given by:
+$$
+R_0(t) = \frac{-k N e^{t(N \beta + k)} {}_{2}F_1\left(1; \frac{k}{N \beta} + 1; \frac{k}{N \beta} + 2; \frac{e^{N \beta t}}{\delta}\right)}{\delta(N \beta + k)} + D_0
+$$
+where ${}_{2}F_1(\cdot)$ is the Gauss's hypergeometric function and $D_0 \in \mathbb{R}$ is the integration constant. Subtituing $R_0(t)$ in $R_D(t) = R_0(t) e^{-k t}$ gives:
+$$
+R_D(t) = \frac{-k N e^{N \beta t} {}_{2}F_1\left(1; \frac{k}{N \beta} + 1; \frac{k}{N \beta} + 2; \frac{e^{N \beta t}}{\delta}\right)}{\delta(N \beta + k)} + D_0 e^{-k t}.
+$$
+We can conclude on the following equations for $R(t)$:
+$$
+R(t) = \frac{-\gamma N e^{N \beta t} {}_{2}F_1\left(1; \frac{\gamma}{N \beta} + 1; \frac{\gamma}{N \beta} + 2; \frac{e^{N \beta t}}{\delta}\right)}{\delta(N \beta + \gamma)} + D_0 e^{-\gamma t}
+$$
+and for $D(t)$:
+$$
+D(t) = \frac{-\alpha N e^{N \beta t} {}_{2}F_1\left(1; \frac{\alpha}{N \beta} + 1; \frac{\alpha}{N \beta} + 2; \frac{e^{N \beta t}}{\delta}\right)}{\delta(N \beta + \alpha)} + D_0 e^{-\alpha t}.
+$$
 
 
 ### Simulation
 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
+dataset <- data.frame(Date = GetDateOfFirstConfirmedInCountry(dataset, country = "Canada"),
+                             Susceptibles = N - 1,
+                             Infected = infected,
+                             Recovered = 0,
+                             Deaths = 0)
+
+t.max = 100
+for (i in seq(1:t.max)) 
+{
+  dataset <- rbind(dataset, list(Date = dataset$Date[i] + 1,
+                                 Susceptibles = S(i, N, beta, N - 1),
+                                 Infected = Ic(i, N, beta, infected),
+                                 Recovered = R(i, N, beta, gamma, infected, 0),
+                                 Deaths = D(i, N, beta, alpha, infected, 0)))
+}
+
+knitr::kable(dataset)
+Scatter.ShowProgression(dataset)
+```
+
+
+
+# Model Parameters Learning

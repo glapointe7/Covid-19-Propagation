@@ -139,3 +139,14 @@ GetCountriesWithBestPercentageOfRecoveredOverInfected <- function(dataset)
                mutate(Percent.Recovered = Total.Recovered / Total.Infected * 100) %>%
                arrange(desc(Percent.Recovered), desc(Total.Infected)))
 }
+
+
+GetCountryPopulation <- function(country)
+{
+    country.population <- fread("Dataset/PopulationByCountry.csv", 
+                                header = TRUE, 
+                                select = c("Country Name", "2018"))
+    colnames(country.population) <- c("Country", "Population")
+    
+    return(country.population$Population[country.population$Country == country])
+}
