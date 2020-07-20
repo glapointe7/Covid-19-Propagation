@@ -26,6 +26,7 @@ Here are some safety measures applied in Canada:
 - Social distancing rule where people have to be at a distance of at least 2 meters between each other. People that are not respecting that rule could get a fine (from 1500\$ to 6000\$). It also means that gatherings of people are strongly forbidden and is punishable by fine.
 - Non-essential services and stores are closed. Services like hospitals, police, gaz stations, drug stores, grocery stores are considered essential services and stores.
 - There is a limitation of people that can enter the stores considered as essential. Also, people have to wash their hands with purell when entering the store. In grocery stores, baskets are all desinfected once a client finished his grocery and leave the store.
+- Since July 18th, 2020, people must wear a mask to cover their mouth and nose in all closed public areas (e.g. stores, banks, gaz station).
 
 
 ## Problem and Questions
@@ -129,7 +130,7 @@ The distribution of the number of people infected, dead or recovered seems to be
 The objective is to show in which countries there are the most infected people until today. Since there are many countries and because the list may be huge enough, we only display the 20 countries with the greatest number of infected people.
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
-knitr::kable(head(country.total, n=20))
+knitr::kable(head(country.total, n=25))
 BarChart.ShowTotalByCountry(head(country.total[, c("Country.Region", "Total.Recovered", "Total.Deaths", "Total.Infected.Active")], n=20))
 ```
 
@@ -210,7 +211,7 @@ It comes now the following questions:
 
 
 ### Aberrant Propagation Acceleration Detection Model
-The objective is to define what is an aberrant value based on our context and remove them in order to get a better estimation on the propagation acceleration. An aberrant value is a value that seems to be out of the "normality" according to our context. For example, if $\Delta^2 (t)$ oscillates normally between $-250$ and $300$ and at a day $k$, $\Delta^2 (k) = 1500$, then $\Delta^2 (k)$ could be considered as an aberrant value.
+The objective is to define what is an aberrant value based on our context. An aberrant value is a value that seems to be out of the "normality" according to the context. For example, if $\Delta^2 (t)$ oscillates normally between $-250$ and $300$ and at a day $k$, $\Delta^2 (k) = 1500$, then $\Delta^2 (k)$ could be considered as an aberrant value. It could be because they forgot to enter all the data received and compensate the day after by adding the current data plus the previous forgotten one.  
 
 Since we want to find when the propagation speed is stable or is decreasing over days, the _value_ here is the propagation acceleration. Assuming that the propagation accelerations are independent and identically distributed (i.i.d.) between days, the idea is to assume that the propagation accelaration is normally distributed (equivalently $\Delta^2 I(t) \sim N(\mu, \sigma^2)$). The mean $\mu$ is expressed as 
 $$
@@ -226,7 +227,7 @@ Therefore, the propagation acceleration is **aberrant** if and only if
 $$
 \Delta^2 I(t) \in ]-\infty, \mu - k\sigma] \cup [\mu + k\sigma, \infty[.
 $$
-where $k \in \mathbb{R}$ is the parameter to provide. For example with $k = 2$, non-aberrant propagation accelerations in the Canada have to be exclusively between 2 standard deviations `r infected.acceleration.mean - 2*infected.acceleration.sd` and `r infected.acceleration.mean + 2*infected.acceleration.sd`.
+where $k \in \mathbb{R}$ is the parameter to provide. For example, if $k = 2$, non-aberrant propagation accelerations in the Canada have to be exclusively between 2 standard deviations `r infected.acceleration.mean - 2*infected.acceleration.sd` and `r infected.acceleration.mean + 2*infected.acceleration.sd`.
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
 lower_bound <- infected.acceleration.mean - 2*infected.acceleration.sd
@@ -240,7 +241,7 @@ non_aberrant <- infected.acceleration[infected.acceleration$Acceleration >= lowe
 Actually, there are `r (1 - nrow(non_aberrant) / nrow(infected.acceleration)) * 100` % of the propagation accelerations that are aberrant.
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
-Scatter.ShowCountryDeltaProgression(non_aberrant, "Acceleration")
+#Scatter.ShowCountryDeltaProgression(non_aberrant, "Acceleration")
 ```
 
 
@@ -426,8 +427,8 @@ The example is based on the data we have for the Canada in this dataset. The fir
 ```{r echo=FALSE, message=FALSE, warning=FALSE, comment=NA}
 options(digits=10)
 
-alpha <- 0.0065
-beta <- 0.0000000045
+alpha <- 0.0028
+beta <- 0.0000000040
 gamma <- 0.045
 N <- as.integer(GetCountryPopulation("Canada"))
 infected <-1
